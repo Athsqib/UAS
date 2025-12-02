@@ -52,23 +52,12 @@ int maxMail;
 
 int playerX = 1, playerY = 1;
 
-bool inMenu = false;
+void wait(){
+    this_thread::sleep_for(1s);
+}
 
-int readIntSafe(const string& prompt){
-    while (_kbhit()) _getch();
-    cin.clear();
-    cin.ignore(numeric_limits<streamsize>::max(), '\n');
-    int value{};
-    for (;;){
-        cout << prompt;
-        if (cin >> value){
-            cin.ignore(numeric_limits<streamsize>::max(), '\n');
-            return value;
-        }
-        cin.clear();
-        cin.ignore(numeric_limits<streamsize>::max(), '\n');
-        cout << "Tidak terdapat dalam opsi.\n"; 
-    }     
+void flushInput(){
+    while (kbhit()) _getch();
 }
 
 void printMaps(){
@@ -118,7 +107,7 @@ void printMaps(){
 
 void trySpawnThief(){
     int chance = rand() % 100;
-    if (chance < 20) {
+    if (chance < 99) {
         int tries = 0;
         do{
             pencuri.thiefX = std::rand() % (lebar - 2) + 1;
@@ -126,7 +115,7 @@ void trySpawnThief(){
         } while (maps[pencuri.thiefY][pencuri.thiefX] != '*' && ++tries < 200);
         pencuri.active = true;
         cout << "\nAda maling disekitar mu. Hati hati dalam perjalanannya.\n";
-        this_thread::sleep_for(1s);
+        wait();
     }
     else {
         pencuri.active = false;
@@ -141,20 +130,24 @@ void giliranThief(){
     else if (player.defend){
         damage = rand() % 3 + 1;
         cout << "Pertahanan habis\n";
+        wait();
         player.defend = false;
     }
     player.stamPlayer -= damage;
     cout << "Maling mencoba untuk mengambil paketmu (-" << damage << " stamina)!\n";
+    wait();
 }
 
 void bertahanThief(){
     int cost = 20;
     if (player.stamPlayer < cost){
         cout << "Kamu kelelahan, kamu tidak memiliki stamina untuk bertahan!\n";
+        wait();
         return;
     }
     player.stamPlayer -= cost;
     cout << "Kamu bertahan, mengurangi damage selanjutnya.\n";
+    wait();
     giliranThief();
 }
 
@@ -162,6 +155,7 @@ void menyerangThief(){
     int cost = 15;
     if (player.stamPlayer < cost){
         cout << "Kamu kelelahan, kamu tidak memiliki stamina untuk menyerang!\n";
+        wait();
         return;
     }
     player.stamPlayer -= cost;
@@ -169,10 +163,13 @@ void menyerangThief(){
     int damage = rand() % 6 + 5;
     pencuri.stamThief -= damage;
     cout << "Kamu menyerang maling (-" << damage << " stamina maling)\n";
+    wait();
+
     if (pencuri.stamThief <= 0){
         int drop = pencuri.amount;
         drop = rand() % 30 + 1;
         cout << "Kamu berhasil mengelabui maling tersebut! Kamu mendapatkan " << drop << " rupiah!\n";
+        wait();
         player.money += drop;
         pencuri.active = false;
         return;
@@ -184,44 +181,47 @@ void kaburThief(){
     int chance = rand() % 100;
     if (chance < 50){
         cout << "Kamu berhasil kabur dari kejaran maling";
+        wait();
         pencuri.active = false;
     }
     else {
         cout << "Kamu gagal kabur :[";
+        wait();
         giliranThief();
     }
 }
 void interactThief(){
     if (!pencuri.active) return;
     if (playerX != pencuri.thiefX || playerY != pencuri.thiefY) return;
-    inMenu = true;
+    char opsi;
     while (pencuri.active && pencuri.stamThief > 0 && player.stamPlayer > 0){
+        system("cls||clear");
         printMaps();
         cout << "\nKamu bertemu dengan maling, bertahan sampai maling itu kelelahan!!\n";
-        cout << "1. Menyerang\n2. Bertahan\n3. Kabur\n";
+        cout << "1. Menyerang (Z)\n2. Bertahan (X)\n3. Kabur (C)\n";
         cout << "Stamina mu = " << player.stamPlayer << endl;
         cout << "Stamia maling = " << pencuri.stamThief << endl;
-        
-        int opsi = readIntSafe("Pilihanmu = ");
+        cout << "Pilihamnu = ";
+        flushInput();
+        cin >> opsi;
+
         switch (opsi) {
-            case 1:
+            case 'z':
                 menyerangThief();
                 break;
-            case 2:
+            case 'x':
                 bertahanThief();
                 break;
-            case 3:
+            case 'c':
                 kaburThief();
                 break;
             default:
-                cout << "Kami anggap plihanmu menyerang ;].";
+                cout << "Kami anggap plihanmu menyerang ;].\n";
                 menyerangThief();
                 break;
         }
     }
-    inMenu = false;
 }
-
 
 void trySpawnMail(){
     maxMail = rand() % 5 + 2;
@@ -248,7 +248,7 @@ void checkPickup() {
         mailItem.taken = true;
         player.money += mailItem.amount;
         cout << "Kamu sudak menyelesaikan order dan mendapatkan " << mailItem.amount << " rupiah!\n";
-        this_thread::sleep_for(1s);
+        wait();
         trySpawnMail();
         trySpawnThief();
     }
@@ -258,10 +258,6 @@ int waitNewKey(){
     static bool keyWasDown = false;
 
     for (;;){
-        if (inMenu){
-            this_thread::sleep_for(50ms);
-            continue;
-        }
         bool w = GetAsyncKeyState('W') & 0x8000 || GetAsyncKeyState('w') & 0x8000;
         bool a = GetAsyncKeyState('A') & 0x8000 || GetAsyncKeyState('a') & 0x8000;
         bool s = GetAsyncKeyState('S') & 0x8000 || GetAsyncKeyState('s') & 0x8000;
@@ -319,10 +315,12 @@ void map(){
             
             checkPickup();
             interactThief();
+            flushInput();
 
             printMaps();
             cout << "Bergerak (WASD) Tidak dapat di hold.";
             cout << "\nUang = " << player.money << " rupiah\n";
+            cout << "Paket yang sudah di antarkan = " << (mailSpawned - 1) << endl;
         };
     }
 }
