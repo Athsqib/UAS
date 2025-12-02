@@ -7,24 +7,84 @@
 #include <random>
 #include <conio.h>
 #include <windows.h>
+#include <array>
 
 using namespace std;
 
 const int tinggi = 10;
 const int lebar = 30;
 
-char maps[tinggi][lebar+1] = {
-    "##############################",
-    "#*********#**#***************#",
-    "#**###**###**###***#######***#",
-    "#**#****#****#***###*********#",
-    "#*####**#**###***#*****###**##",
-    "#****************###*********#",
-    "#*##**#####***##***#****######",
-    "#**#**#******#**#******##****#",
-    "#*****#**********************#",
-    "##############################"
+using Map = array<string, tinggi>;
+
+vector<Map> allMaps = {
+    Map{
+        "##############################",
+        "#*********#**#***************#",
+        "#**###**###**###***#######***#",
+        "#**#****#****#***###*********#",
+        "#*####**#**###***#*****###**##",
+        "#****************###*********#",
+        "#*##**#####***##***#****######",
+        "#**#**#******#**#******##****#",
+        "#*****#**********************#",
+        "##############################"
+    },
+    Map{
+        "##############################",
+        "#***##********#****###*******#",
+        "#**#***###***##***#***##*****#",
+        "#*****##***#****##***#*******#",
+        "##***###****#***##**##***#***#",
+        "#******#****##*******#****#**#",
+        "#*###****###***##****###***#*#",
+        "#**#****#***#*****#***#*****##",
+        "#*****##******##********##***#",
+        "##############################"
+    },
+    Map{
+        "##############################",
+        "#**********#****###**********#",
+        "#**###**#*#**#**#***##*******#",
+        "#**#****#****#****##****###**#",
+        "#*####**#**###***#*****###**##",
+        "#*******#*************#******#",
+        "#*##**#*###***##***###****####",
+        "#**#**#******#**#******##****#",
+        "#*****#**********************#",
+        "##############################"
+    },
+    Map{
+        "##############################",
+        "#****##****#***###*****##****#",
+        "#**#****#****##***##***#*****#",
+        "#***###****#******#***###****#",
+        "##*###***####**##***###****###",
+        "#****#*******##*****#****#***#",
+        "#*##***#****###***##***###**##",
+        "#***#*****#****#********#****#",
+        "#******###************###****#",
+        "##############################"
+    },
+    Map{
+        "##############################",
+        "#**#**##******###***#*****#**#",
+        "#***#******###***#****###****#",
+        "##***##****#***####***#***##*#",
+        "#****###***#****#****##***#**#",
+        "#**#****#***********####***#*#",
+        "#*###***###****##***#*****#**#",
+        "#***#*******#******#***#*****#",
+        "#****###***************###***#",
+        "##############################"
+    }
 };
+
+Map* currentMap = nullptr;
+
+char cell(int y, int x){
+    if (y < 0 || y >= tinggi || x < 0 || x >= lebar) return '#';
+    return (*currentMap)[y][x];
+}
 
 struct player {
     int playerX, playerY;
@@ -50,14 +110,68 @@ struct mail {
 int mailSpawned = 0;
 int maxMail;
 
-int playerX = 1, playerY = 1;
+int playerX = 0, playerY = 0;
 
 void wait(){
     this_thread::sleep_for(1s);
 }
 
+void waitLong(){
+    this_thread::sleep_for(3s);
+}
+
 void flushInput(){
     while (kbhit()) _getch();
+}
+
+int waitNewKey(){
+    static bool keyWasDown = false;
+
+    for (;;){
+        bool w = GetAsyncKeyState('W') & 0x8000 || GetAsyncKeyState('w') & 0x8000;
+        bool a = GetAsyncKeyState('A') & 0x8000 || GetAsyncKeyState('a') & 0x8000;
+        bool s = GetAsyncKeyState('S') & 0x8000 || GetAsyncKeyState('s') & 0x8000;
+        bool d = GetAsyncKeyState('D') & 0x8000 || GetAsyncKeyState('d') & 0x8000;
+        bool q = GetAsyncKeyState('Q') & 0x8000 || GetAsyncKeyState('q') & 0x8000;
+        bool z = GetAsyncKeyState('Z') & 0x8000 || GetAsyncKeyState('z') & 0x8000;
+        bool x = GetAsyncKeyState('X') & 0x8000 || GetAsyncKeyState('x') & 0x8000;
+        bool c = GetAsyncKeyState('C') & 0x8000 || GetAsyncKeyState('c') & 0x8000;
+
+        int key = 0;
+
+        if (w) key = 'w';
+        else if (a) key = 'a';
+        else if (s) key = 's';
+        else if (d) key = 'd';
+        else if (q) key = 'q';
+        else if (z) key = 'z';
+        else if (x) key = 'x';
+        else if (c) key = 'c';
+        else key = 0;
+
+        if (key && !keyWasDown){
+            keyWasDown = true;
+            return key;
+        }
+        if (!key) keyWasDown = false;
+
+        this_thread::sleep_for(20ms);
+    }
+    return 0;
+}
+
+void playerPlacement(){
+    bool placed = false;
+    for (int y = 0; y < tinggi && !placed; ++y) {
+        for (int x = 0; x < lebar; ++x) {
+            if ((*currentMap)[y][x] == '*') {
+                playerX = x;
+                playerY = y;
+                placed = true;
+                break;
+            }
+        }
+    }
 }
 
 void printMaps(){
@@ -66,7 +180,7 @@ void printMaps(){
     
     for (int i = 0; i < tinggi; i++){
         for (int j = 0; j < lebar; j++){
-            char c = maps[i][j];
+            char c = cell(i, j);
             bool printed = false;
 
             if (playerX == j && playerY == i){
@@ -107,12 +221,12 @@ void printMaps(){
 
 void trySpawnThief(){
     int chance = rand() % 100;
-    if (chance < 99) {
+    if (chance < 20) {
         int tries = 0;
         do{
             pencuri.thiefX = std::rand() % (lebar - 2) + 1;
             pencuri.thiefY = std::rand() % (tinggi - 2) + 1;
-        } while (maps[pencuri.thiefY][pencuri.thiefX] != '*' && ++tries < 200);
+        } while (cell(pencuri.thiefY, pencuri.thiefX) != '*' && ++tries < 200);
         pencuri.active = true;
         cout << "\nAda maling disekitar mu. Hati hati dalam perjalanannya.\n";
         wait();
@@ -129,17 +243,16 @@ void giliranThief(){
     } 
     else if (player.defend){
         damage = rand() % 3 + 1;
-        cout << "Pertahanan habis\n";
-        wait();
         player.defend = false;
     }
     player.stamPlayer -= damage;
+    pencuri.stamThief -= 3;
     cout << "Maling mencoba untuk mengambil paketmu (-" << damage << " stamina)!\n";
     wait();
 }
 
 void bertahanThief(){
-    int cost = 20;
+    int cost = 10;
     if (player.stamPlayer < cost){
         cout << "Kamu kelelahan, kamu tidak memiliki stamina untuk bertahan!\n";
         wait();
@@ -148,11 +261,14 @@ void bertahanThief(){
     player.stamPlayer -= cost;
     cout << "Kamu bertahan, mengurangi damage selanjutnya.\n";
     wait();
+    player.defend = true;
     giliranThief();
+    cout << "Pertahanan habis\n";
+    wait();
 }
 
 void menyerangThief(){
-    int cost = 15;
+    int cost = 5;
     if (player.stamPlayer < cost){
         cout << "Kamu kelelahan, kamu tidak memiliki stamina untuk menyerang!\n";
         wait();
@@ -180,12 +296,12 @@ void menyerangThief(){
 void kaburThief(){
     int chance = rand() % 100;
     if (chance < 50){
-        cout << "Kamu berhasil kabur dari kejaran maling";
+        cout << "Kamu berhasil kabur dari kejaran maling.\n";
         wait();
         pencuri.active = false;
     }
     else {
-        cout << "Kamu gagal kabur :[";
+        cout << "Kamu gagal kabur :[\n";
         wait();
         giliranThief();
     }
@@ -193,7 +309,6 @@ void kaburThief(){
 void interactThief(){
     if (!pencuri.active) return;
     if (playerX != pencuri.thiefX || playerY != pencuri.thiefY) return;
-    char opsi;
     while (pencuri.active && pencuri.stamThief > 0 && player.stamPlayer > 0){
         system("cls||clear");
         printMaps();
@@ -201,11 +316,10 @@ void interactThief(){
         cout << "1. Menyerang (Z)\n2. Bertahan (X)\n3. Kabur (C)\n";
         cout << "Stamina mu = " << player.stamPlayer << endl;
         cout << "Stamia maling = " << pencuri.stamThief << endl;
-        cout << "Pilihamnu = ";
+        cout << "Pilihamnu = (Z/X/C)";
         flushInput();
-        cin >> opsi;
-
-        switch (opsi) {
+            
+        switch (waitNewKey()) {
             case 'z':
                 menyerangThief();
                 break;
@@ -216,16 +330,28 @@ void interactThief(){
                 kaburThief();
                 break;
             default:
-                cout << "Kami anggap plihanmu menyerang ;].\n";
-                menyerangThief();
+                cout << "Kami anggap anda diam ;].\n";
+                giliranThief();
                 break;
         }
+    }
+    system("cls||clear");
+    printMaps();          
+    
+    if (pencuri.stamThief <= 0){
+        cout << "Maling itu kelelahan dan pergi!\n";
+        waitLong();
+        pencuri.active = false;
+    }
+    else if (player.stamPlayer <= 0){
+        cout << "Kamu kelelahan dan jatuh pingsan! Maling itu mengambil paketmu dan pergi...\n";
+        waitLong();
+        maxMail--;
+        pencuri.active = false;
     }
 }
 
 void trySpawnMail(){
-    maxMail = rand() % 5 + 2;
-
     if (mailSpawned >= maxMail) return;
     if (!mailItem.taken) return;
 
@@ -234,9 +360,9 @@ void trySpawnMail(){
         mailItem.mailX = rand() % (lebar - 2) + 1;
         mailItem.mailY = rand() % (tinggi - 2) + 1;
         percobaan++;
-    } while (maps[mailItem.mailY][mailItem.mailX] != '*' && percobaan < 200);
+    } while (cell(mailItem.mailY, mailItem.mailX) != '*' && percobaan < 200);
 
-    mailItem.amount = rand() % 100 + 1;
+    mailItem.amount = rand() % 100 + 30;
     mailItem.taken = false;
 
     mailSpawned++;
@@ -254,45 +380,15 @@ void checkPickup() {
     }
 }
 
-int waitNewKey(){
-    static bool keyWasDown = false;
-
-    for (;;){
-        bool w = GetAsyncKeyState('W') & 0x8000 || GetAsyncKeyState('w') & 0x8000;
-        bool a = GetAsyncKeyState('A') & 0x8000 || GetAsyncKeyState('a') & 0x8000;
-        bool s = GetAsyncKeyState('S') & 0x8000 || GetAsyncKeyState('s') & 0x8000;
-        bool d = GetAsyncKeyState('D') & 0x8000 || GetAsyncKeyState('d') & 0x8000;
-        bool q = GetAsyncKeyState('Q') & 0x8000 || GetAsyncKeyState('q') & 0x8000;
-
-        int key = 0;
-
-        if (w) key = 'w';
-        else if (a) key = 'a';
-        else if (s) key = 's';
-        else if (d) key = 'd';
-        else if (q) key = 'q';
-        else key = 0;
-
-        if (key && !keyWasDown){
-            keyWasDown = true;
-            return key;
-        }
-        if (!key) keyWasDown = false;
-
-        this_thread::sleep_for(20ms);
-    }
-    return 0;
-}
-
 void map(){
     bool move = true;
+    playerPlacement();
     printMaps();
     cout << "Bergerak (WASD) Tidak dapat di hold.";
     mailItem.taken = true;
     trySpawnMail();
 
     cout << "\nUang = " << player.money << " rupiah\n";
-
 
     while (move){
         int key = waitNewKey();
@@ -307,11 +403,20 @@ void map(){
         else if (key == 'd') newX++;
         else if (key == 'q') move = false;
 
-        if (newX >= 0 && newX < lebar && newY >= 0 && newY < tinggi && maps[newY][newX] == '*') {
-            maps[playerY][playerX] = '*';
+        if (move) player.stamPlayer--;
+
+        if (player.stamPlayer <= 0){
+            printMaps();
+            cout << "\nKamu kelelahan dan tidak bisa melanjutkan perjalananmu.\n";
+            waitLong();
+            move = false;
+        }
+
+        if (newX >= 0 && newX < lebar && newY >= 0 && newY < tinggi && cell(newY, newX) == '*') {
+            (*currentMap)[playerY][playerX] = '*';
             playerX = newX;
             playerY = newY;
-            maps[playerY][playerX] = 'P';
+            (*currentMap)[playerY][playerX] = 'P';
             
             checkPickup();
             interactThief();
@@ -320,12 +425,15 @@ void map(){
             printMaps();
             cout << "Bergerak (WASD) Tidak dapat di hold.";
             cout << "\nUang = " << player.money << " rupiah\n";
-            cout << "Paket yang sudah di antarkan = " << (mailSpawned - 1) << endl;
+            cout << "Stamina = " << player.stamPlayer << endl;
+            cout << "Lokasi paket = " << mailSpawned << "/" << maxMail << endl;
         };
     }
 }
 
 int main(){
     srand(time(0));
+    maxMail = rand() % 5 + 2;
+    currentMap = &allMaps[rand() % allMaps.size()];
     map();
 }
