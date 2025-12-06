@@ -8,8 +8,20 @@
 #include <conio.h>
 #include <windows.h>
 #include <array>
+#include <fstream>
 
 using namespace std;
+
+void start();
+void outside();
+void shop();
+void map();
+void house();
+void menu();
+void wait();
+void waitLong();
+void playerPlacement(); 
+int waitNewKey();
 
 const int tinggi = 10;
 const int lebar = 30;
@@ -79,12 +91,7 @@ vector<Map> allMaps = {
     }
 };
 
-Map* currentMap = nullptr;
-
-char cell(int y, int x){
-    if (y < 0 || y >= tinggi || x < 0 || x >= lebar) return '#';
-    return (*currentMap)[y][x];
-}
+const Map* currentMap = nullptr;
 
 struct player {
     int playerX, playerY;
@@ -131,9 +138,52 @@ struct shopUpgrade {
     int stock;
 } shopUpgradeItem;
 
+struct gachaItems {
+    string name;
+    int cost;
+    string description;
+} gachaItem;
+
+struct day {
+    int currentDay = 1;
+    int currentTimeHour = 7;
+    int currentTimeMinute = 0;
+} days;
+
+constexpr int UPGRADE_COUNT = 7;
+constexpr int STAMINA_ITEM_COUNT = 5;
+constexpr uint32_t SAVE_VERSION = 1;
+
+struct saveData {
+    uint32_t version = SAVE_VERSION;
+    int px, py;
+    int money;
+    int stam, maxStam;
+
+    int day;
+    int hour, minute;
+    int mapIndex;
+    int mailSpawned;
+
+    int upgradeLevels[UPGRADE_COUNT];
+    int staminaStock[STAMINA_ITEM_COUNT];
+
+    saveData() : version(SAVE_VERSION), px(0), py(0), money(0), stam(0), maxStam(0), day(1), hour(7), minute(0), mapIndex(0) {
+        memset(upgradeLevels, 0, sizeof(upgradeLevels));
+        memset(staminaStock, 0, sizeof(staminaStock));
+    }
+};
+
+enum class menuSource {
+    OUTSIDE,  HOUSE, SHOP, MAP
+};
+
+menuSource lastMenuSource = menuSource::HOUSE;
+
+
 vector<staminaItems> shopStaminaItems = {
     {"Air Kelapa", 50, "Kaya akan elektrolit alami seperti kalium untuk mengganti cairan tubuh yang hilang saat beraktivitas fisik yang dapat menambahkan stamina mu sebanyak 30 poin.", 30, 30, 10},
-    {"Kopi", 150, "Minuman hitam pait yang penuh kafein, dapat menambah stamina mu sebanyak 60 poin.", 60, rand() % 20 + 5},
+    {"Kopi", 150, "Minuman hitam pait yang penuh kafein, dapat menambah stamina mu sebanyak 60 poin.", 60, 20, 5},
     {"Smoothie Piscang", 300, "Smoothie dengan rasa campuran dari pisang dan selai kacang yang dapat menambah stamina mu sebanyak 100 poin.", 100, 10, 1},
     {"Blue Bull", 500, "Minuman energi yang mengandung kafein, taurine, dan vitamin B yang dapat menambah stamina mu sebanyak 150 poin.", 150, 5, 1},
     {"Expresso 10 Shot", 1000, "Minuman kopi yang sangat kuat dengan 10 shot espresso yang dapat menambah stamina mu sebanyak 300 poin.", 300, 3, 1}
@@ -149,12 +199,145 @@ vector<shopUpgrade> shopUpgradeItems = {
     {"Thief Effectiveness Upgrade", 3000, "Meningkatkan efektivitas maling dalam mencuri paketmu sebanyak 10%.", 0, 5}
 };
 
+vector<gachaItems> gachaPool = {}; //untuk gacha nanti
+
 vector<int> actualStaminaStock;
 
 int mailSpawned = 0;
 int maxMail = 4;
 
 int playerX, playerY;
+
+char getBaseCell(int y, int x){
+    if (y < 0 || y >= tinggi || x < 0 || x >= lebar) return '#';
+    return (*currentMap)[y][x];
+}
+
+bool isWalkable(int y, int x) {
+    return getBaseCell(y, x) == '*';
+}
+
+char cell(int y, int x){
+    if (y < 0 || y >= tinggi || x < 0 || x >= lebar) return '#';
+    if (playerX == x && playerY == y) return 'P';
+    if (!mailItem.taken && mailItem.mailX == x && mailItem.mailY == y) return '$';
+    if (pencuri.active && pencuri.thiefX == x && pencuri.thiefY == y) return '!';
+    return getBaseCell(y, x);
+}
+
+void saveGame(const string& filename = "save.dat"){
+    ofstream out (filename, ios::binary);
+    if (!out){
+        cout << "Gagal menyimpan!\n";
+        wait();
+        return;
+    }
+    saveData s{};
+    s.px = playerX;
+    s.py = playerY;
+    s.money = player.money;
+    s.stam = player.stamPlayer;
+    s.maxStam = player.maxStamPlayer;
+    s.day = days.currentDay;
+    s.hour = days.currentTimeHour;
+    s.minute = days.currentTimeMinute;
+    s.mailSpawned = mailSpawned;
+    s.mapIndex = static_cast<int>(currentMap - &allMaps[0]);
+
+    for (int i = 0; i < (int)shopUpgradeItems.size(); i++) s.upgradeLevels[i] = shopUpgradeItems[i].level;
+    for (int i = 0; i < (int)actualStaminaStock.size(); i++) s.staminaStock[i] = actualStaminaStock[i];
+
+    out.write(reinterpret_cast<const char*>(&s), sizeof(s));
+    out.close();
+
+    cout << "Permainan berhasil disimpan!\n";
+    wait();
+}
+
+bool loadGame(const string& filename = "save.dat"){
+    ifstream in(filename, ios::binary);
+    if (!in){
+        cout << "File save tidak ditemukan atau rusak!\n";
+        wait();
+        return false;
+    }
+    saveData s{};
+    in.read(reinterpret_cast<char*>(&s), sizeof(s));
+    if (s.version != SAVE_VERSION){
+        cout << "Save file version tidak cocok!\n";
+        wait();
+        return false;
+    }
+    if (s.mapIndex < 0 || s.mapIndex >= (int)allMaps.size()){
+        cout << "Map index invalid: " << s.mapIndex << "\n";
+        wait();
+        return false;
+    }
+
+    playerX = s.px;
+    playerY = s.py;
+    player.money = s.money;
+    player.stamPlayer = s.stam;
+    player.maxStamPlayer = s.maxStam;
+    days.currentDay = s.day;
+    days.currentTimeHour = s.hour;
+    days.currentTimeMinute = s.minute;
+    currentMap = &allMaps[s.mapIndex];
+    mailSpawned = s.mailSpawned;
+
+    if (shopUpgradeItems.size() != UPGRADE_COUNT) cout << "Error\n";
+    if (actualStaminaStock.size() != STAMINA_ITEM_COUNT) cout << "Error\n";
+
+    for (size_t i = 0; i < 7 && i < (int)shopStaminaItems.size(); i++) shopUpgradeItems[i].level = s.upgradeLevels[i];
+
+    actualStaminaStock.clear();
+    for (size_t i = 0; i < shopStaminaItems.size(); i++){
+        int stock = (i < STAMINA_ITEM_COUNT) ? s.staminaStock[i] : rand() % shopStaminaItems[i].stockAmount + shopStaminaItems[i].stockEffectiveness;
+        actualStaminaStock.push_back(stock);
+    }
+
+    mailItem.taken = true;
+    pencuri.active = false;
+    player.defend = false;
+
+    cout << "=== DEBUG LOAD ===\n";
+    cout << "Pos: " << playerX << "," << playerY << "\n";
+    cout << "Map idx: " << s.mapIndex << "/" << allMaps.size() << "\n";
+    cout << "Money: " << player.money << "\n";
+    cout << "Stock count: " << actualStaminaStock.size() << "\n";
+    cout << "Press any key...\n";
+    waitNewKey();
+
+    cout << "Permainan berhasil dimuat!\n";
+    wait();
+    return true;
+}
+
+void startNewGame(){
+    player = {};
+    pencuri = {};
+    mailItem = {};
+    days = {};
+    player.money = 0;
+    player.stamPlayer = 100;
+    player.maxStamPlayer = 100;
+    currentMap = &allMaps[rand() % allMaps.size()];
+    playerPlacement();
+    mailSpawned = 0;
+    maxMail = 4;
+    actualStaminaStock.clear();
+    for (const auto& item : shopStaminaItems){
+        int stock = rand() % item.stockAmount + item.stockEffectiveness;
+        actualStaminaStock.push_back(stock);
+    }
+    for (auto& item : shopUpgradeItems) {
+        item.level = 0;
+    }
+}
+
+void printTime(){
+    printf("Waktu: %02d:%02d\n", days.currentTimeHour, days.currentTimeMinute);
+}
 
 void wait(){
     this_thread::sleep_for(1s);
@@ -187,6 +370,11 @@ int waitNewKey(){
         bool num2 = GetAsyncKeyState('2') & 0x8000;
         bool num3 = GetAsyncKeyState('3') & 0x8000;
         bool num4 = GetAsyncKeyState('4') & 0x8000;
+        bool num5 = GetAsyncKeyState('5') & 0x8000;
+        bool num6 = GetAsyncKeyState('6') & 0x8000;
+        bool num7 = GetAsyncKeyState('7') & 0x8000;
+        bool num8 = GetAsyncKeyState('8') & 0x8000;
+        bool num9 = GetAsyncKeyState('9') & 0x8000;
         
 
         int key = 0;
@@ -206,6 +394,11 @@ int waitNewKey(){
         else if (num2) key = '2';
         else if (num3) key = '3';
         else if (num4) key = '4';
+        else if (num5) key = '5';
+        else if (num6) key = '6';
+        else if (num7) key = '7';
+        else if (num8) key = '8';
+        else if (num9) key = '9';
         else key = 0;
 
         if (key && !keyWasDown){
@@ -230,6 +423,29 @@ void playerPlacement(){
                 break;
             }
         }
+    }
+}
+
+void nextDay(){
+    days.currentDay++;
+    currentMap = &allMaps[rand() % allMaps.size()];
+    playerPlacement();
+    mailSpawned = 0;
+    mailItem.taken = true;
+    pencuri.active = false;
+    waitLong();
+}
+
+void nextTime(int time){
+    days.currentTimeMinute += time;
+    if(days.currentTimeMinute >= 60){
+        int extraHour = days.currentTimeMinute / 60;
+        days.currentTimeHour+= extraHour;
+        days.currentTimeMinute %= 60;
+    }
+    if(days.currentTimeHour >= 24){
+        days.currentTimeHour = 0;
+        nextDay();
     }
 }
 
@@ -271,7 +487,6 @@ void printMaps(){
                     cout << c;
                 }
             }
-            
         }
         cout << endl;
     }
@@ -404,7 +619,7 @@ void interactThief(){
         cout << "Kamu kelelahan dan jatuh pingsan! Maling itu mengambil paketmu dan pergi...\n";
         waitLong();
         int randomLoss = rand() % mailItem.amount + 10;
-        if (mailSpawned = maxMail) player.money -= randomLoss;
+        if (mailSpawned == maxMail) player.money -= randomLoss;
         else maxMail--;
         pencuri.active = false;
     }
@@ -462,17 +677,19 @@ void checkPickup() {
 
 void map(){
     bool move = true;
-    playerPlacement();
     printMaps();
+    cout << "\n==== Hari ke- " << days.currentDay << " ====\n";
     cout << "Bergerak (WASD) Tidak dapat di hold.";
-    mailItem.taken = true;
-    trySpawnMail();
+    cout << "Tekan (Q) untuk keluar dari peta.";
+    if (mailSpawned == 0) {
+        mailItem.taken = true;
+        trySpawnMail();
+    }
 
     cout << "\nUang = " << player.money << " rupiah\n";
 
     while (move){
         int key = waitNewKey();
-        if (key == 'q') break;
         
         int newX = playerX;
         int newY = playerY;
@@ -481,35 +698,47 @@ void map(){
         else if (key == 'a') newX--;
         else if (key == 's') newY++;
         else if (key == 'd') newX++;
-        else if (key == 'q') move = false;
+        else if (key == 'q') {
+            move = false;
+            lastMenuSource = menuSource::MAP;
+        }
 
-        if (move) player.stamPlayer--;
+        if (newX < 0 || newX >= lebar || newY < 0 || newY >= tinggi) {
+            continue;
+        }
+
+        if (getBaseCell(newY, newX) != '*'){
+            continue;
+        }
+
+        playerX = newX;
+        playerY = newY;
+        player.stamPlayer--;
+        moveThiefTowardPlayer();
+        nextTime(1);
+        
+        checkPickup();
+        interactThief();
+        flushInput();
+
+        printMaps();
+        cout << "\n==== Hari ke- " << days.currentDay << " ====\n";
+        cout << "Bergerak (WASD) Tidak dapat di hold.";
+        cout << "Tekan (Q) untuk keluar dari peta.";
+        cout << "\nUang = " << player.money << " rupiah\n";
+        cout << "Stamina = " << player.stamPlayer << "/" << player.maxStamPlayer << endl;
+        cout << "Lokasi paket = " << mailSpawned << "/" << maxMail << endl;
+        printTime();
 
         if (player.stamPlayer <= 0){
             printMaps();
-            cout << "\nKamu kelelahan dan tidak bisa melanjutkan perjalananmu.\n";
+            cout << "\n==== Hari ke- " << days.currentDay << " ====\n";
+            cout << "Kamu kelelahan dan tidak bisa melanjutkan perjalananmu.\n";
             waitLong();
-            move = false;
+            outside();
         }
-
-        if (newX >= 0 && newX < lebar && newY >= 0 && newY < tinggi && cell(newY, newX) == '*') {
-            (*currentMap)[playerY][playerX] = '*';
-            playerX = newX;
-            playerY = newY;
-            moveThiefTowardPlayer();
-            (*currentMap)[playerY][playerX] = 'P';
-            
-            checkPickup();
-            interactThief();
-            flushInput();
-
-            printMaps();
-            cout << "Bergerak (WASD) Tidak dapat di hold.";
-            cout << "\nUang = " << player.money << " rupiah\n";
-            cout << "Stamina = " << player.stamPlayer << "/" << player.maxStamPlayer << endl;
-            cout << "Lokasi paket = " << mailSpawned << "/" << maxMail << endl;
-        };
     }
+    outside();
 }
 
 void notEnoughMoney(int punya, int butuh){
@@ -530,7 +759,7 @@ void upgradeMailAmount(int){
 }
 
 void upgradeMailEffectiveness(int){
-    mailItem.effectiveness += ((15/100) * mailItem.effectiveness);
+    mailItem.effectiveness += ((mailItem.effectiveness * 15) / 100);
 }
 
 void upgradeThiefSpawnChance(int){
@@ -542,11 +771,16 @@ void upgradeThiefAmount(int){
 }
 
 void upgradeThiefEffectiveness(int){
-    pencuri.effectiveness += ((10/100) * pencuri.effectiveness);
+    pencuri.effectiveness += ((pencuri.effectiveness * 10) / 100);
 }
 
 void choiceShopStaminaItem(int index){
-    int stock = rand() % shopStaminaItems[index].stockAmount + shopStaminaItems[index].stockEffectiveness;
+    int stock = actualStaminaStock[index];
+    if (index < 0 || index >= (int)actualStaminaStock.size()) {
+    cout << "Item tidak tersedia.\n";
+    wait();
+    return;
+    }
     cout << shopStaminaItems[index].description << endl;
     cout << "Apakah kamu yakin ingin membelinya? (Y/N)";
     flushInput();
@@ -615,14 +849,14 @@ void shop(){
         system("cls||clear");
         cout << "Selamat datang di toko!\n";
         for (size_t i = 0; i < 3; i++){
-            int stock = rand() % shopStaminaItems[i].stockAmount + shopStaminaItems[i].stockEffectiveness;
+            int stock = actualStaminaStock[i];
             cout << i + 1 << ". " << shopStaminaItems[i].name << " - " << shopStaminaItems[i].price << " rupiah" << " (Stok: " << stock << ")\n";
         }
         if (!upgradeShop) cout << "4. Upgrade Toko - 1000 rupiah";
         else if (upgradeShop) {
             cout << "4. Upgrade Toko (Sudah di-upgrade) - Pilih untuk masuk ke dalam toko yang sudah di upgrade";
         }
-        cout << "\n0. Keluar dari toko\n";
+        cout << "5. Menu\n0. Keluar dari toko\n";
         cout << "Uang mu = " << player.money << " rupiah\n";
         cout << "Stamina = " << player.stamPlayer << "/" << player.maxStamPlayer << endl;
         cout << "Pilihanmu = ";
@@ -727,12 +961,17 @@ void shop(){
                 wait();
             }
         }
+        else if (choice == '5'){
+            menu();
+            lastMenuSource = menuSource::SHOP;
+        }
         else if (choice == '0'){
             cout << "Keluar dari toko...\n";
             wait();
             move = true;
             openshop = false;
-            map();
+            outside();
+            nextTime(20);
         }
         else {
             cout << "Pilihan tidak valid. Silakan coba lagi.\n";
@@ -743,13 +982,198 @@ void shop(){
     }
 }
 
+void start(){
+    system("cls||clear");
+    cout << "Selamat datang di permainan pengantar paket!\n";
+    cout << "Mengumpulkan uang sebanyak banyaknya untuk khilaf dalam gacha game!\n";
+    cout << "1. Mulai Permainan\n2. Load\n0. Keluar\n";
+    cout << "Pilihanmu = ";
+    flushInput();
+    int choice = waitNewKey();
+    switch (choice) {
+        case '1':
+            startNewGame();
+            house();
+            break;
+        case '2':
+            if (loadGame()){
+                switch (lastMenuSource){
+                    case menuSource::HOUSE:
+                        house();
+                        break;
+                    case menuSource::OUTSIDE:
+                        outside();
+                        break;
+                    case menuSource::MAP:
+                        map();
+                        break;
+                    default:
+                        house();
+                        break;
+                }
+            }
+            break;
+        case '0':
+            cout << "Terima kasih sudah bermain!\n";
+            waitLong();
+            exit(0);
+            break;
+        default:
+            cout << "Pilihan tidak valid. Silakan coba lagi.\n";
+            wait();
+            start();
+            break;
+    }
+}
+
+void outside(){
+    system("cls||clear");
+    cout << "==== Hari ke- " << days.currentDay << " ====\n";
+    printTime();
+    cout << "Kamu sedang di luar. Apa yang kamu ingin lakukan?";
+    cout << "\n1. Toko\n2. Bekerja\n3. Rumah\n4. Menu\n";
+    cout << "Pilihanmu = ";
+    flushInput();
+    int choice = waitNewKey();
+    switch (choice) {
+        case '1':
+            shop();
+            nextTime(20);
+            break;
+        case '2':
+            map();
+            nextTime(5);
+            break;
+        case '3':
+            house();
+            nextTime(5);
+            break;
+        case '4':
+            menu();
+            lastMenuSource = menuSource::OUTSIDE;
+            break;
+        default:
+            cout << "Pilihan tidak valid. Silakan coba lagi.\n";
+            wait();
+            outside();
+            break;
+    }
+}
+
+void house(){
+    bool inhouse = true;
+    while (inhouse) {
+        system("cls||clear");
+        cout << "==== Hari ke- " << days.currentDay << " ====\n";
+        printTime();
+        cout << "Kamu berada di rumahmu. Apa yang ingin kamu lakukan?\n";
+        cout << "1. Tidur\n2. Istirahat\n3. Mandi\n4. Collection\n5. Menu\n0. Keluar rumah\n";
+        cout << "Pilihanmu = ";
+        flushInput();
+        int choice = waitNewKey();
+        if (choice == '1'){
+            player.stamPlayer = player.maxStamPlayer;
+            nextDay();
+            days.currentTimeHour = 7;
+            cout << "Kamu tidur nyenyak dan stamina mu terisi penuh!\n";
+            wait();
+        }
+        else if (choice == '2'){
+            int restRecover = player.maxStamPlayer / 4;
+            player.stamPlayer += restRecover;
+            if (player.stamPlayer > player.maxStamPlayer){
+                player.stamPlayer = player.maxStamPlayer;
+            }
+            nextTime(30);
+            cout << "Kamu beristirahat sejenak dan stamina mu bertambah " << restRecover << " poin!\n";
+            wait();
+        }
+        else if (choice == '3'){
+            int bathRecover = player.maxStamPlayer / 10;
+            player.stamPlayer += bathRecover;
+            if (player.stamPlayer > player.maxStamPlayer){
+                player.stamPlayer = player.maxStamPlayer;
+            }
+            nextTime(45);
+            cout << "Kamu mandi dan merasa segar kembali! Stamina mu bertambah " << bathRecover << " poin!\n";
+            wait();
+        }
+        // choice 4 (menyusul)
+        else if (choice == '5'){
+            menu();
+            lastMenuSource = menuSource::HOUSE;
+        }
+        else if (choice == '0'){
+            cout << "Kamu keluar dari rumahmu.\n";
+            wait();
+            inhouse = false;
+            outside();
+            nextTime(5);
+        }
+        else {
+            cout << "Pilihan tidak valid. Silakan coba lagi.\n";
+            wait();
+        }
+    }
+}
+
+void menu(){
+    system("cls||clear");
+    cout << "Penglihatanmu tiba tiba gelap dan tanpa sepengetahuanmu kamu berada di ruangan hitam!\n";
+    cout << "Kamu sedang ada di menu. Apa yang ingin lakukan?\n";
+    cout << "1. Kembali\n2. Save\n3. Load\n0. Kembali ke tampilan utama.";
+    int choice = waitNewKey();
+    switch (choice){
+        case '1': 
+            switch (lastMenuSource){
+                case menuSource::HOUSE:
+                    house();
+                    break;
+                case menuSource::OUTSIDE:
+                    outside();
+                    break;
+                case menuSource::MAP:
+                    map();
+                    break;
+                case menuSource::SHOP:
+                    shop();
+                    break;
+                default:
+                    start();
+                    break;
+            }
+        case '2':
+            saveGame();
+            menu();
+            break;
+        case '3':
+            if (loadGame()){
+                switch (lastMenuSource){
+                    case menuSource::HOUSE:
+                        house();
+                        break;
+                    case menuSource::OUTSIDE:
+                        outside();
+                        break;
+                    case menuSource::MAP:
+                        map();
+                        break;
+                    default:
+                        house();
+                        break;
+                }
+            }
+            break;
+        case '0':
+            start();
+            break;
+        default:
+            cout << "Pilihan tidak valid. Silahkan coba lagi.\n";
+            break;            
+    }
+}
+
 int main(){
     srand(time(0));
-    currentMap = &allMaps[rand() % allMaps.size()];
-    for (const auto& item : shopStaminaItems){
-        int stock = rand() % item.stockAmount + item.stockEffectiveness;
-        actualStaminaStock.push_back(stock);
-    }
-    shop();
-    
+    start();
 }
