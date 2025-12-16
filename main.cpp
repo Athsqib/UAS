@@ -22,7 +22,8 @@ void wait();
 void waitLong();
 void playerPlacement(); 
 int waitNewKey();
-void collection();
+void collectionPage();
+void gachaShop();
 
 const int tinggi = 10;
 const int lebar = 30;
@@ -96,7 +97,7 @@ const Map* currentMap = nullptr;
 
 struct player {
     int playerX, playerY;
-    int money = 8000;
+    int money = 0;
     int mailAmount;
     int stamPlayer = 30;
     int maxStamPlayer = 100;
@@ -145,40 +146,12 @@ struct gachaItems {
     string description;
 } gachaItemBox;
 
-struct HoloBox {
+struct Item {
     string name;
     int code;
     string description;
     bool owned;
-} holoBox;
-
-struct IndieBox {
-    string name;
-    int code;
-    string description;
-    bool owned;
-} indieBox;
-
-struct MinecraftBox {
-    string name;
-    int code;
-    string description;
-    bool owned;
-} minecraftBox;
-
-struct MathBox {
-    string name;
-    int code;
-    string description;
-    bool owned;
-} mathBox;
-
-struct CardBox {
-    string name;
-    int code;
-    string description;
-    bool owned;
-} cardBox;
+} item;
 
 struct day {
     int currentDay = 1;
@@ -242,15 +215,20 @@ vector<gachaItems> gachaBox = {
     {"Card Box", 250, "Gacha kartu....  Kalian ini kira apaan.."}
 };
 
-vector<HoloBox> holoGachaPool {
+vector<Item> holoGachaPool {
     {"Teddy Bear", 1, "Boneka beruang yang menemani seorang idol pada masa masa berkarirnya dia bernama Ankimo.", true},
     {"Roboco Glasses", 2, "Kacamata yang mendampingi dari model 1.0 nya roboco-chan", false},
     {"AZKi Mic", 3, "Mic kepunyaan salah satu mantan member INoNaKa Music :3", false},
     {"Elite Cat", 4, "Boneka kucing yang mereferensikan dari Self-Proclaimed 'Elite' shrine maiden", false},
-    {"Comet Axe", 5, "Kapak iconic yang dipakai seorang Comet Idol", false}
+    {"Comet Axe", 5, "Kapak iconic yang dipakai seorang Comet Idol", false},
+    {"Teddy Bear", 6, "Boneka beruang yang menemani seorang idol pada masa masa berkarirnya dia bernama Ankimo.", false},
+    {"Roboco Glasses", 7, "Kacamata yang mendampingi dari model 1.0 nya roboco-chan", false},
+    {"AZKi Mic", 8, "Mic kepunyaan salah satu mantan member INoNaKa Music :3", false},
+    {"Elite Cat", 9, "Boneka kucing yang mereferensikan dari Self-Proclaimed 'Elite' shrine maiden", false},
+    {"Comet Axe", 10, "Kapak iconic yang dipakai seorang Comet Idol", true}
 };  
 
-vector<IndieBox> indieGachaPool {
+vector<Item> indieGachaPool {
     {"Red Heart", 79, "You are filled with determination", false}, 
     {"Flying Strawberry", 80, "It's a plane, It's a bird, no that is a FLYING STRAWBERRY", false},
     {"Needle", 81, "Senjata yang menemani sebuah kumbang dalam petualangannya", false},
@@ -258,7 +236,7 @@ vector<IndieBox> indieGachaPool {
     {"Blue Soul", 83, "You need to die to progress the game forward", false}
 };
 
-vector<MinecraftBox> minecraftGachaPool {
+vector<Item> minecraftGachaPool {
     {"Dirt Block", 90, "Block tanah logo iconic pada masanya", false},
     {"Iron Ingot", 91, "Biasanya speedrun suka bunuh golem buat dapet ini, kasian golemnya", false},
     {"Gold Ingot", 92, "Alat-alat dari sini jelek semua :[", false},
@@ -267,7 +245,7 @@ vector<MinecraftBox> minecraftGachaPool {
     {"Ender Dragon Egg", 95, "Apa tuh teleport teleport pas disentuh", false}
 };
 
-vector<MathBox> mathGachaPool {
+vector<Item> mathGachaPool {
     {"+", 100, "Makin banyak", false},
     {"-", 101, "Makin sedikit", false},
     {"x", 102, "Makin banyak part 2", false},
@@ -275,7 +253,7 @@ vector<MathBox> mathGachaPool {
     {"Aljabar", 104, "VARIBEL..., apa itu varibel, pengen beli truck", false}
 };
 
-vector<CardBox> cardGachaPool {
+vector<Item> cardGachaPool {
     {"UNO", 121, "Game kartu yang punya aturan beda beda setiap tongkrongan", false},
     {"Poker", 122, "Judi dia", false},
     {"KTP", 123, "Gila KTP dapet dari gacha dia", false}, 
@@ -400,7 +378,7 @@ void startNewGame(){
     pencuri = {};
     mailItem = {};
     days = {};
-    player.money = 0;
+    player.money = 8000;
     player.stamPlayer = 100;
     player.maxStamPlayer = 100;
     currentMap = &allMaps[rand() % allMaps.size()];
@@ -761,7 +739,7 @@ void map(){
     bool move = true;
     printMaps();
     cout << "\n==== Hari ke- " << days.currentDay << " ====\n";
-    cout << "Bergerak (WASD) Tidak dapat di hold.";
+    cout << "Bergerak (WASD) Tidak dapat di hold. ";
     cout << "Tekan (Q) untuk keluar dari peta.";
     if (mailSpawned == 0) {
         mailItem.taken = true;
@@ -805,12 +783,12 @@ void map(){
 
         printMaps();
         cout << "\n==== Hari ke- " << days.currentDay << " ====\n";
-        cout << "Bergerak (WASD) Tidak dapat di hold.";
+        printTime();
+        cout << "Bergerak (WASD) Tidak dapat di hold. ";
         cout << "Tekan (Q) untuk keluar dari peta.";
         cout << "\nUang = " << player.money << " rupiah\n";
         cout << "Stamina = " << player.stamPlayer << "/" << player.maxStamPlayer << endl;
         cout << "Lokasi paket = " << mailSpawned << "/" << maxMail << endl;
-        printTime();
 
         if (player.stamPlayer <= 0){
             printMaps();
@@ -929,6 +907,7 @@ void shop(){
     bool inUpgradedShop = false;
     while (!move && openshop){
         system("cls||clear");
+        cout << "====== TOKO ======\n";
         cout << "Selamat datang di toko!\n";
         for (size_t i = 0; i < 3; i++){
             int stock = actualStaminaStock[i];
@@ -939,7 +918,7 @@ void shop(){
             cout << "4. Upgrade Toko (Sudah di-upgrade) - Pilih untuk masuk ke dalam toko yang sudah di upgrade";
         }
         cout << "5. Menu\n0. Keluar dari toko\n";
-        cout << "Uang mu = " << player.money << " rupiah\n";
+        cout << "\nUang mu = " << player.money << " rupiah\n";
         cout << "Stamina = " << player.stamPlayer << "/" << player.maxStamPlayer << endl;
         cout << "Pilihanmu = ";
         flushInput();
@@ -1064,7 +1043,7 @@ void shop(){
     }
 }
 
-void showHoloDetail(const HoloBox& item){
+void showItemDetail(const Item& item){
     system ("cls||clear");
     cout << "====== DETAIL ======\n\n";
     cout << "Name : " << item.name << endl;
@@ -1073,363 +1052,134 @@ void showHoloDetail(const HoloBox& item){
     cout << "\n[Z]Back [Q]Quit\n";
 }
 
-void showIndieDetail(const IndieBox& item){
-    system ("cls||clear");
-    cout << "====== DETAIL ======\n\n";
-    cout << "Name : " << item.name << endl;
-    cout << "Code : " << item.code << endl;
-    cout << "Desc : " << item.description << endl;
-    cout << "\n[Z]Back [Q]Quit\n";
-}
+void displayItemC(vector<Item>& collection, int currentPage, int perPage){
+    int startItem = (currentPage - 1) * perPage;
+    int endItem = startItem + perPage;
+    if (endItem > collection.size()) endItem = collection.size();
+    int totalPages = (collection.size() + perPage - 1) / perPage;
 
-void showMinecraftDetail(const MinecraftBox& item){
-    system ("cls||clear");
-    cout << "====== DETAIL ======\n\n";
-    cout << "Name : " << item.name << endl;
-    cout << "Code : " << item.code << endl;
-    cout << "Desc : " << item.description << endl;
-    cout << "\n[Z]Back [Q]Quit\n";
-}
+    system("cls||clear");
+    cout << "Page " << currentPage << " of " << totalPages << endl;
+    for (int i = startItem; i < endItem; i++){
+        if (collection[i].owned){
+            cout << i - startItem + 1 << ". " << collection[i].name << endl;
+        }
+        else {
+            cout << i - startItem + 1 << ". " << "*****************************\n";
+        }
+    }
+    cout << "[Z]Prev [X]Next [Q]Exit [1 - 5]See Detail \n";
+    flushInput();
+    int choice = waitNewKey();
 
-void showMathDetail(const MathBox& item){
-    system ("cls||clear");
-    cout << "====== DETAIL ======\n\n";
-    cout << "Name : " << item.name << endl;
-    cout << "Code : " << item.code << endl;
-    cout << "Desc : " << item.description << endl;
-    cout << "\n[Z]Back [Q]Quit\n";
-}
-
-void showCardDetail(const CardBox& item){
-    system ("cls||clear");
-    cout << "====== DETAIL ======\n\n";
-    cout << "Name : " << item.name << endl;
-    cout << "Code : " << item.code << endl;
-    cout << "Desc : " << item.description << endl;
-    cout << "\n[Z]Back [Q]Quit\n";
+    if (choice >= '1' && choice <= '5'){
+        int index = (currentPage - 1) * perPage + (choice - '1');
+        if (index < (int)collection.size()){
+            if (collection[index].owned){
+                showItemDetail(collection[index]);
+                int pilihan = waitNewKey();
+                switch(pilihan){
+                    case 'z':
+                    case 'Z':
+                        break;
+                    case 'q':
+                    case 'Q':
+                        return;
+                }
+            }
+        }
+    }
+    else{
+        switch(choice){
+            case 'x':
+                if (currentPage < totalPages) currentPage++;
+                displayItemC(collection, currentPage, perPage);
+                break;
+            case 'z':
+                if (currentPage > 1) currentPage--;
+                displayItemC(collection, currentPage, perPage);
+                break;
+            case 'q':
+                return;
+            default:
+                cout << "Pilihan invalid. Coba ulang kembali.\n";
+                wait();
+                break;
+        }
+    }
 }
 
 void HoloC(){
-    system ("cls||clear");
+    int currentPage = 1;
     bool inHolo = true;
-    const int perPage = 5;
-    int currentPage = 0;
-    int totalPages = (holoGachaPool.size() + perPage - 1)/ perPage;
-
     while (inHolo){
-        system("cls||clear");
-        for (int i = 0; i < holoGachaPool.size(); i++){
-            if (holoGachaPool[i].owned){
-                cout << i+1 << ". " << holoGachaPool[i].name << endl;
-            }
-            else {
-                cout << i+1 << ". " << "*****************************\n";
-            }
-        }
-        cout << "\n(" << (currentPage + 1) << "/" << totalPages << ")\n";
-        cout << "[Z]Prev [X]Next [Q]Exit\n";
+        displayItemC(holoGachaPool, currentPage, 5);
         flushInput();
-        int choice = waitNewKey();
-
-        switch (choice){
-            case 'x':
-                if (currentPage <= totalPages) currentPage++;
-                break;
-            case 'z':
-                if (currentPage > 0) currentPage--;
-                break;
-            case 'q':
-                inHolo = false;
-                collection();
-            default:
-                break;
-        }
-
-        if (choice >= '1' && choice <= '5'){
-            int index = (currentPage * perPage) + (choice - '1');
-            if (index < (int)holoGachaPool.size()){
-                if (holoGachaPool[index].owned){
-                    bool inDetail = true;
-                    while (inDetail){
-                        showHoloDetail(holoGachaPool[index]);
-                        char key = waitNewKey();
-                        switch (key){
-                            case 'z':
-                            case 'Z':
-                                inDetail = false;
-                                break;
-                            case 'q':
-                            case 'Q':
-                                inDetail = false;
-                                inHolo = false;
-                                break;
-                            default:
-                                break;           
-                        }
-                    }
-                }
-            }
+        int nextChoice = waitNewKey();
+        if (nextChoice == 'q'){
+            inHolo = false;
+            break;
         }
     }
 }
 
 void IndieC(){
-    system ("cls||clear");
+    int currentPage = 1;
     bool inIndie = true;
-    const int perPage = 5;
-    int currentPage = 0;
-    int totalPages = (indieGachaPool.size() + perPage - 1)/ perPage;
-
     while (inIndie){
-        system("cls||clear");
-        for (int i = 0; i < indieGachaPool.size(); i++){
-            if (indieGachaPool[i].owned){
-                cout << i+1 << ". " << indieGachaPool[i].name << endl;
-            }
-            else {
-                cout << i+1 << ". " << "*****************************\n";
-            }
-        }
-        cout << "\n(" << (currentPage + 1) << "/" << totalPages << ")\n";
-        cout << "[Z]Prev [X]Next [Q]Exit\n";
+        displayItemC(indieGachaPool, currentPage, 5);
         flushInput();
-        int choice = waitNewKey();
-
-        switch (choice){
-            case 'x':
-                if (currentPage <= totalPages) currentPage++;
-                break;
-            case 'z':
-                if (currentPage > 0) currentPage--;
-                break;
-            case 'q':
-                inIndie = false;
-                collection();
-            default:
-                break;
-        }
-
-        if (choice >= '1' && choice <= '5'){
-            int index = (currentPage * perPage) + (choice - '1');
-            if (index < (int)indieGachaPool.size()){
-                if (indieGachaPool[index].owned){
-                    bool inDetail = true;
-                    while (inDetail){
-                        showIndieDetail(indieGachaPool[index]);
-                        char key = waitNewKey();
-                        switch (key){
-                            case 'z':
-                            case 'Z':
-                                inDetail = false;
-                                break;
-                            case 'q':
-                            case 'Q':
-                                inDetail = false;
-                                inIndie = false;
-                                break;
-                            default:
-                                break;           
-                        }
-                    }
-                }
-            }
+        int nextChoice = waitNewKey();
+        if (nextChoice == 'q'){
+            inIndie = false;
+            break;
         }
     }
 }
 
 void MinecraftC(){
-    system ("cls||clear");
+    int currentPage = 1;
     bool inMine = true;
-    const int perPage = 5;
-    int currentPage = 0;
-    int totalPages = (minecraftGachaPool.size() + perPage - 1)/ perPage;
-
     while (inMine){
-        system("cls||clear");
-        for (int i = 0; i < minecraftGachaPool.size(); i++){
-            if (minecraftGachaPool[i].owned){
-                cout << i+1 << ". " << minecraftGachaPool[i].name << endl;
-            }
-            else {
-                cout << i+1 << ". " << "*****************************\n";
-            }
-        }
-        cout << "\n(" << (currentPage + 1) << "/" << totalPages << ")\n";
-        cout << "[Z]Prev [X]Next [Q]Exit\n";
+        displayItemC(minecraftGachaPool, currentPage, 5);
         flushInput();
-        int choice = waitNewKey();
-
-        switch (choice){
-            case 'x':
-                if (currentPage <= totalPages) currentPage++;
-                break;
-            case 'z':
-                if (currentPage > 0) currentPage--;
-                break;
-            case 'q':
-                inMine = false;
-                collection();
-            default:
-                break;
-        }
-
-        if (choice >= '1' && choice <= '5'){
-            int index = (currentPage * perPage) + (choice - '1');
-            if (index < (int)minecraftGachaPool.size()){
-                if (minecraftGachaPool[index].owned){
-                    bool inDetail = true;
-                    while (inDetail){
-                        showMinecraftDetail(minecraftGachaPool[index]);
-                        char key = waitNewKey();
-                        switch (key){
-                            case 'Z':
-                            case 'z':
-                                inDetail = false;
-                                break;
-                            case 'q':
-                            case 'Q':
-                                inDetail = false;
-                                inMine = false;
-                                break;
-                            default:
-                                break;           
-                        }
-                    }
-                }
-            }
+        int nextChoice = waitNewKey();
+        if (nextChoice == 'q'){
+            inMine = false;
+            break;
         }
     }
 }
 
 void MathC(){
-    system ("cls||clear");
+    int currentPage = 1;
     bool inMath = true;
-    const int perPage = 5;
-    int currentPage = 0;
-    int totalPages = (mathGachaPool.size() + perPage - 1)/ perPage;
-
     while (inMath){
-        system("cls||clear");
-        for (int i = 0; i < mathGachaPool.size(); i++){
-            if (mathGachaPool[i].owned){
-                cout << i+1 << ". " << mathGachaPool[i].name << endl;
-            }
-            else {
-                cout << i+1 << ". " << "*****************************\n";
-            }
-        }
-        cout << "\n(" << (currentPage + 1) << "/" << totalPages << ")\n";
-        cout << "[Z]Prev [X]Next [Q]Exit\n";
+        displayItemC(mathGachaPool, currentPage, 5);
         flushInput();
-        int choice = waitNewKey();
-
-        switch (choice){
-            case 'x':
-                if (currentPage <= totalPages) currentPage++;
-                break;
-            case 'z':
-                if (currentPage > 0) currentPage--;
-                break;
-            case 'q':
-                inMath = false;
-                collection();
-            default:
-                break;
-        }
-
-        if (choice >= '1' && choice <= '5'){
-            int index = (currentPage * perPage) + (choice - '1');
-            if (index < (int)mathGachaPool.size()){
-                if (mathGachaPool[index].owned){
-                    bool inDetail = true;
-                    while (inDetail){
-                        showMathDetail(mathGachaPool[index]);
-                        char key = waitNewKey();
-                        switch (key){
-                            case 'z':
-                            case 'Z':
-                                inDetail = false;
-                                break;
-                            case 'q':
-                            case 'Q':
-                                inDetail = false;
-                                inMath = false;
-                                break;
-                            default:
-                                break;           
-                        }
-                    }
-                }
-            }
+        int nextChoice = waitNewKey();
+        if (nextChoice == 'q'){
+            inMath = false;
+            break;
         }
     }
 }
 
 void CardC(){
-    system ("cls||clear");
+    int currentPage = 1;
     bool inCard = true;
-    const int perPage = 5;
-    int currentPage = 0;
-    int totalPages = (cardGachaPool.size() + perPage - 1)/ perPage;
-
     while (inCard){
-        system("cls||clear");
-        for (int i = 0; i < cardGachaPool.size(); i++){
-            if (cardGachaPool[i].owned){
-                cout << i+1 << ". " << cardGachaPool[i].name << endl;
-            }
-            else {
-                cout << i+1 << ". " << "*****************************\n";
-            }
-        }
-        cout << "\n(" << (currentPage + 1) << "/" << totalPages << ")\n";
-        cout << "[Z]Prev [X]Next [Q]Exit\n";
+        displayItemC(cardGachaPool, currentPage, 5);
         flushInput();
-        int choice = waitNewKey();
-
-        switch (choice){
-            case 'x':
-                if (currentPage <= totalPages) currentPage++;
-                break;
-            case 'z':
-                if (currentPage > 0) currentPage--;
-                break;
-            case 'q':
-                inCard = false;
-                collection();
-            default:
-                break;
-        }
-
-        if (choice >= '1' && choice <= '5'){
-            int index = (currentPage * perPage) + (choice - '1');
-            if (index < (int)cardGachaPool.size()){
-                if (cardGachaPool[index].owned){
-                    bool inDetail = true;
-                    while (inDetail){
-                        showCardDetail(cardGachaPool[index]);
-                        char key = waitNewKey();
-                        switch (key){
-                            case 'Z':
-                            case 'z':
-                                inDetail = false;
-                                break;
-                            case 'q':
-                            case 'Q':
-                                inDetail = false;
-                                inCard = false;
-                                break;
-                            default:
-                                break;           
-                        }
-                    }
-                }
-            }
+        int nextChoice = waitNewKey();
+        if (nextChoice == 'q'){
+            inCard = false;
+            break;
         }
     }
 }
 
-void collection(){
+void collectionPage(){
     bool inCollection = true;
     while (inCollection){
         system("cls||clear");
@@ -1510,6 +1260,7 @@ void start(){
 
 void outside(){
     system("cls||clear");
+    cout << "====== DI LUAR ======\n";
     cout << "==== Hari ke- " << days.currentDay << " ====\n";
     printTime();
     cout << "Kamu sedang di luar. Apa yang kamu ingin lakukan?";
@@ -1531,11 +1282,12 @@ void outside(){
             nextTime(5);
             break;
         case '4':
-            // gachaShop();
+            gachaShop();
             nextTime(5);
+            break;
         case '5':
-            menu();
             lastMenuSource = menuSource::OUTSIDE;
+            menu();
             break;
         default:
             cout << "Pilihan tidak valid. Silakan coba lagi.\n";
@@ -1549,6 +1301,7 @@ void house(){
     bool inhouse = true;
     while (inhouse) {
         system("cls||clear");
+        cout << "====== RUMAH ======\n";
         cout << "==== Hari ke- " << days.currentDay << " ====\n";
         printTime();
         cout << "Kamu berada di rumahmu. Apa yang ingin kamu lakukan?\n";
@@ -1558,10 +1311,10 @@ void house(){
         int choice = waitNewKey();
         if (choice == '1'){
             player.stamPlayer = player.maxStamPlayer;
-            nextDay();
-            days.currentTimeHour = 7;
             cout << "Kamu tidur nyenyak dan stamina mu terisi penuh!\n";
             wait();
+            nextDay();
+            days.currentTimeHour = 7;
         }
         else if (choice == '2'){
             int restRecover = player.maxStamPlayer / 4;
@@ -1584,7 +1337,7 @@ void house(){
             wait();
         }
         else if (choice == '4'){
-            collection();
+            collectionPage();
             inhouse = false;
         }
         else if (choice == '5'){
@@ -1607,9 +1360,22 @@ void house(){
 
 void menu(){
     system("cls||clear");
+    cout << "====== MENU ======\n";
     cout << "Penglihatanmu tiba tiba gelap dan tanpa sepengetahuanmu kamu berada di ruangan hitam!\n";
     cout << "Kamu sedang ada di menu. Apa yang ingin lakukan?\n";
-    cout << "1. Kembali\n2. Save\n3. Load\n0. Kembali ke tampilan utama.";
+    cout << "1. Kembali\n2. Save\n3. Load\n0. Kembali ke tampilan utama.\n";
+    cout << "Tempat sebelum menu: ";
+    switch (lastMenuSource) {
+        case menuSource::HOUSE:
+            cout << "House" << endl;
+            break;
+        case menuSource::OUTSIDE:
+            cout << "Outside" << endl;
+            break;
+        default:
+            cout << "Unknown" << endl;
+            break;
+    }
     int choice = waitNewKey();
     switch (choice){
         case '1': 
@@ -1619,12 +1385,6 @@ void menu(){
                     break;
                 case menuSource::OUTSIDE:
                     outside();
-                    break;
-                case menuSource::MAP:
-                    map();
-                    break;
-                case menuSource::SHOP:
-                    shop();
                     break;
                 default:
                     start();
@@ -1643,9 +1403,6 @@ void menu(){
                     case menuSource::OUTSIDE:
                         outside();
                         break;
-                    case menuSource::MAP:
-                        map();
-                        break;
                     default:
                         house();
                         break;
@@ -1658,6 +1415,106 @@ void menu(){
         default:
             cout << "Pilihan tidak valid. Silahkan coba lagi.\n";
             break;            
+    }
+}
+
+Item gachaItem(const vector<Item>& pool, int cost){
+    if (player.money < cost){
+        notEnoughMoney(player.money, cost);
+        return Item{};
+    }
+
+    player.money -= cost;
+    vector<int> weights;
+    int totalWeights = 0;
+
+    for (const auto& item : pool){
+        int weight = 100;
+        weights.push_back(weight);
+        totalWeights += weight;
+    }
+
+    random_device rd;
+    mt19937 gen(rd());
+    discrete_distribution<int> dist(weights.begin(), weights.end());
+    auto index = dist(gen); 
+
+    return pool[index];    
+}
+
+void gachaBoxPurchase(int choice, int boxIndex, vector<Item>& gacha){
+    Item item = gachaItem(gacha, gachaBox[boxIndex].cost);
+    cout << "Anda mendapatkan: " << item.name << "!" << endl;
+    item.owned = true;
+    flushInput();
+    cout << "\nPress Z to continue...\n";
+    waitNewKey();
+}
+
+void pengulanganGacha(int choice, vector<Item>& gachas){
+    int banyak;
+    bool moneyEnough = true;
+    while (moneyEnough){
+        cout << "\nIngin membuka berapa box? (1-9)\n";
+        flushInput();
+        banyak = waitNewKey();
+        flushInput();
+
+        if (banyak < '1' && banyak > '9'){
+            cout << "Jumlah harus di antara 1 dan 9. Coba ulangi lagi.\n";
+            wait();
+            continue;
+        }
+        
+        int totalCost = (banyak - '0') * gachaBox[choice - '1'].cost;
+        if (player.money < totalCost){
+            cout << "Kamu tidak punya uang yang cukup untuk pembelian ini.\n";
+            wait();
+            moneyEnough = false;
+        } 
+        else{
+            for (int i = '0'; i <= choice; i++){
+                gachaBoxPurchase(choice, choice - '1', gachas);
+            }
+            return;
+        }
+    }
+}
+
+void gachaShop(){
+    bool inGacha = true;
+    while (inGacha){
+        system("cls||clear");
+        cout << "====== TOKO GACHA ======\n";
+        cout << "Selamat datang di toko Gacha, disini kamu bisa berkesempatan untuk mendapatkan item dari kategori kesukaanmu :]\n";
+        for (size_t i = 0; i < gachaBox.size(); i++){
+            cout << i + 1 << ". " << gachaBox[i].name << endl;
+        }
+        cout << "0. Keluar\n";
+        cout << "Pilihan mu = ";
+        flushInput();
+        int choice = waitNewKey();
+        switch (choice){
+            case '1':
+                pengulanganGacha(choice, holoGachaPool);
+                break;
+            case '2':
+                pengulanganGacha(choice, indieGachaPool);
+                break;
+            case '3':
+                pengulanganGacha(choice, minecraftGachaPool);
+                break;
+            case '4':
+                pengulanganGacha(choice, mathGachaPool);
+                break;
+            case '5':
+                pengulanganGacha(choice, cardGachaPool);
+                break;
+            case '0':
+                inGacha = false;
+                outside();
+                break;
+        }
     }
 }
 
