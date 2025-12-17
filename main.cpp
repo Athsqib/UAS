@@ -1,5 +1,5 @@
 #include <iostream>
-#include <cstdlib>
+#include <cstdlib> 
 #include <limits>
 #include <vector>
 #include <chrono>
@@ -161,6 +161,11 @@ struct day {
 
 constexpr int UPGRADE_COUNT = 7;
 constexpr int STAMINA_ITEM_COUNT = 5;
+constexpr int HOLO_GACHA_COUNT = 15;
+constexpr int INDIE_GACHA_COUNT = 5;
+constexpr int MINECRAFT_GACHA_COUNT = 6;
+constexpr int MATH_GACHA_COUNT = 5;
+constexpr int CARD_GACHA_COUNT = 5;
 constexpr uint32_t SAVE_VERSION = 1;
 
 struct saveData {
@@ -176,10 +181,20 @@ struct saveData {
 
     int upgradeLevels[UPGRADE_COUNT];
     int staminaStock[STAMINA_ITEM_COUNT];
+    bool holoOwned[HOLO_GACHA_COUNT];
+    bool indieOwned[INDIE_GACHA_COUNT];
+    bool minecraftOwned[MINECRAFT_GACHA_COUNT];
+    bool mathOwned[MATH_GACHA_COUNT];
+    bool cardOwned[CARD_GACHA_COUNT];
 
     saveData() : version(SAVE_VERSION), px(0), py(0), money(0), stam(0), maxStam(0), day(1), hour(7), minute(0), mapIndex(0) {
         memset(upgradeLevels, 0, sizeof(upgradeLevels));
         memset(staminaStock, 0, sizeof(staminaStock));
+        memset(holoOwned, 0, sizeof(holoOwned));
+        memset(indieOwned, 0, sizeof(indieOwned));
+        memset(minecraftOwned, 0, sizeof(minecraftOwned));
+        memset(mathOwned, 0, sizeof(mathOwned));
+        memset(cardOwned, 0, sizeof(cardOwned));
     }
 };
 
@@ -216,16 +231,22 @@ vector<gachaItems> gachaBox = {
 };
 
 vector<Item> holoGachaPool {
-    {"Teddy Bear", 1, "Boneka beruang yang menemani seorang idol pada masa masa berkarirnya dia bernama Ankimo.", true},
+    {"Teddy Bear", 1, "Boneka beruang yang menemani seorang idol pada masa masa berkarirnya.", false},
     {"Roboco Glasses", 2, "Kacamata yang mendampingi dari model 1.0 nya roboco-chan", false},
     {"AZKi Mic", 3, "Mic kepunyaan salah satu mantan member INoNaKa Music :3", false},
     {"Elite Cat", 4, "Boneka kucing yang mereferensikan dari Self-Proclaimed 'Elite' shrine maiden", false},
     {"Comet Axe", 5, "Kapak iconic yang dipakai seorang Comet Idol", false},
-    {"Teddy Bear", 6, "Boneka beruang yang menemani seorang idol pada masa masa berkarirnya dia bernama Ankimo.", false},
-    {"Roboco Glasses", 7, "Kacamata yang mendampingi dari model 1.0 nya roboco-chan", false},
-    {"AZKi Mic", 8, "Mic kepunyaan salah satu mantan member INoNaKa Music :3", false},
-    {"Elite Cat", 9, "Boneka kucing yang mereferensikan dari Self-Proclaimed 'Elite' shrine maiden", false},
-    {"Comet Axe", 10, "Kapak iconic yang dipakai seorang Comet Idol", true}
+    {"Aki Pigtails", 6, "Benda ini terbang karena kekuatan supernatural", false},
+    {"Fried Tarantula", 7, "Masakannya iseng buatan hati merah pada saat Australian Arc", false},
+    {"The People's Tears", 8, "Tangisan para fans karena dipanggil teman oleh si rubah putih.", false},
+    {"Bandaids ...", 9, "Cerita bizzare seorang idol suci...", false},
+    {"Ojou-sama Long Lost Map", 10, "Kehilangan arah pada saat mencari rumahnya di Game Minecraft", false},
+    {"Chocolate Teacher", 11, "Sebuah persona dari salah satu demon idol", false},
+    {"Dancing Duck", 12, "Seorang idol yang di berikan label sebagai bebek", false},
+    {"Wet Onion", 13, "'Bawang' yang menjadi maid nahkoda kapal", false},
+    {"Hatotaurus", 14, "Stand seorang black-haired wolf girl", false},
+    {"Onigiri", 15, "Mogu mogu!!", false}
+
 };  
 
 vector<Item> indieGachaPool {
@@ -273,7 +294,7 @@ char getBaseCell(int y, int x){
     return (*currentMap)[y][x];
 }
 
-bool isWalkable(int y, int x) {
+bool isWalkable(int y, int x){
     return getBaseCell(y, x) == '*';
 }
 
@@ -304,8 +325,13 @@ void saveGame(const string& filename = "save.dat"){
     s.mailSpawned = mailSpawned;
     s.mapIndex = static_cast<int>(currentMap - &allMaps[0]);
 
-    for (int i = 0; i < (int)shopUpgradeItems.size(); i++) s.upgradeLevels[i] = shopUpgradeItems[i].level;
-    for (int i = 0; i < (int)actualStaminaStock.size(); i++) s.staminaStock[i] = actualStaminaStock[i];
+    for (int i = 0; i < UPGRADE_COUNT && i < (int)shopUpgradeItems.size(); i++) s.upgradeLevels[i] = shopUpgradeItems[i].level;
+    for (int i = 0; i < STAMINA_ITEM_COUNT && i < (int)actualStaminaStock.size(); i++) s.staminaStock[i] = actualStaminaStock[i];
+    for (int i = 0; i < HOLO_GACHA_COUNT && i < (int)holoGachaPool.size(); i++) s.holoOwned[i] = holoGachaPool[i].owned;
+    for (int i = 0; i < INDIE_GACHA_COUNT && i < (int)indieGachaPool.size(); i++) s.indieOwned[i] = indieGachaPool[i].owned;
+    for (int i = 0; i < MINECRAFT_GACHA_COUNT && i < (int)minecraftGachaPool.size(); i++) s.minecraftOwned[i] = minecraftGachaPool[i].owned;
+    for (int i = 0; i < MATH_GACHA_COUNT && i < (int)mathGachaPool.size(); i++) s.mathOwned[i] = mathGachaPool[i].owned;
+    for (int i = 0; i < CARD_GACHA_COUNT && i < (int)cardGachaPool.size(); i++) s.cardOwned[i] = cardGachaPool[i].owned;
 
     out.write(reinterpret_cast<const char*>(&s), sizeof(s));
     out.close();
@@ -320,6 +346,7 @@ bool loadGame(const string& filename = "save.dat"){
         cout << "File save tidak ditemukan atau rusak!\n";
         wait();
         return false;
+        menu();
     }
     saveData s{};
     in.read(reinterpret_cast<char*>(&s), sizeof(s));
@@ -348,13 +375,19 @@ bool loadGame(const string& filename = "save.dat"){
     if (shopUpgradeItems.size() != UPGRADE_COUNT) cout << "Error\n";
     if (actualStaminaStock.size() != STAMINA_ITEM_COUNT) cout << "Error\n";
 
-    for (size_t i = 0; i < 7 && i < (int)shopStaminaItems.size(); i++) shopUpgradeItems[i].level = s.upgradeLevels[i];
+    for (size_t i = 0; i < 7 && UPGRADE_COUNT < (int)shopStaminaItems.size(); i++) shopUpgradeItems[i].level = s.upgradeLevels[i];
 
     actualStaminaStock.clear();
     for (size_t i = 0; i < shopStaminaItems.size(); i++){
         int stock = (i < STAMINA_ITEM_COUNT) ? s.staminaStock[i] : rand() % shopStaminaItems[i].stockAmount + shopStaminaItems[i].stockEffectiveness;
         actualStaminaStock.push_back(stock);
     }
+
+    for (int i = 0; i < HOLO_GACHA_COUNT && i < (int)holoGachaPool.size(); i++) holoGachaPool[i].owned = s.holoOwned[i];
+    for (int i = 0; i < INDIE_GACHA_COUNT && i < (int)indieGachaPool.size(); i++) indieGachaPool[i].owned = s.indieOwned[i];
+    for (int i = 0; i < MINECRAFT_GACHA_COUNT && i < (int)minecraftGachaPool.size(); i++) minecraftGachaPool[i].owned = s.minecraftOwned[i];
+    for (int i = 0; i < MATH_GACHA_COUNT && i < (int)mathGachaPool.size(); i++) mathGachaPool[i].owned = s.mathOwned[i];
+    for (int i = 0; i < CARD_GACHA_COUNT && i < (int)cardGachaPool.size(); i++) cardGachaPool[i].owned = s.cardOwned[i];
 
     mailItem.taken = true;
     pencuri.active = false;
@@ -567,7 +600,7 @@ void trySpawnThief(){
         wait();
     }
     else{
-        pencuri.active = false;
+        pencuri.active = false; 
     }
 }
 
@@ -724,7 +757,7 @@ void trySpawnMail(){
 
 }
 
-void checkPickup() {
+void checkPickup(){
     if (!mailItem.taken && playerX == mailItem.mailX && playerY == mailItem.mailY){
         mailItem.taken = true;
         player.money += mailItem.amount;
@@ -738,7 +771,7 @@ void checkPickup() {
 void map(){
     bool move = true;
     printMaps();
-    cout << "\n==== Hari ke- " << days.currentDay << " ====\n";
+    cout << "\n===== Hari ke-" << days.currentDay << " =====\n";
     cout << "Bergerak (WASD) Tidak dapat di hold. ";
     cout << "Tekan (Q) untuk keluar dari peta.";
     if (mailSpawned == 0) {
@@ -782,7 +815,7 @@ void map(){
         flushInput();
 
         printMaps();
-        cout << "\n==== Hari ke- " << days.currentDay << " ====\n";
+        cout << "\n===== Hari ke- " << days.currentDay << " =====\n";
         printTime();
         cout << "Bergerak (WASD) Tidak dapat di hold. ";
         cout << "Tekan (Q) untuk keluar dari peta.";
@@ -792,7 +825,7 @@ void map(){
 
         if (player.stamPlayer <= 0){
             printMaps();
-            cout << "\n==== Hari ke- " << days.currentDay << " ====\n";
+            cout << "\n===== Hari ke-" << days.currentDay << " =====\n";
             cout << "Kamu kelelahan dan tidak bisa melanjutkan perjalananmu.\n";
             waitLong();
             outside();
@@ -900,8 +933,9 @@ void choiceShopUpgradeItem(int index, void (*upgradeFunction)(int)){
     }
 }
 
+bool upgradeShop = false;
+
 void shop(){
-    bool upgradeShop = false;
     bool move = false;
     bool openshop = true;
     bool inUpgradedShop = false;
@@ -917,7 +951,7 @@ void shop(){
         else if (upgradeShop) {
             cout << "4. Upgrade Toko (Sudah di-upgrade) - Pilih untuk masuk ke dalam toko yang sudah di upgrade";
         }
-        cout << "5. Menu\n0. Keluar dari toko\n";
+        cout << "\n5. Menu\n0. Keluar dari toko\n";
         cout << "\nUang mu = " << player.money << " rupiah\n";
         cout << "Stamina = " << player.stamPlayer << "/" << player.maxStamPlayer << endl;
         cout << "Pilihanmu = ";
@@ -971,7 +1005,7 @@ void shop(){
                                 cout << " (Sudah max)";
                             }
                         }
-                        cout << "0. Kembali ke toko utama\n";
+                        cout << "\n0. Kembali ke toko utama\n\n";
                         cout << "Uang mu = " << player.money << " rupiah\n";
                         cout << "Stamina = " << player.stamPlayer << "/" << player.maxStamPlayer << endl;
                         cout << "Pilihanmu = ";
@@ -1023,8 +1057,8 @@ void shop(){
             }
         }
         else if (choice == '5'){
-            menu();
             lastMenuSource = menuSource::SHOP;
+            menu();
         }
         else if (choice == '0'){
             cout << "Keluar dari toko...\n";
@@ -1185,7 +1219,7 @@ void collectionPage(){
         system("cls||clear");
         cout << "======= RUANG KOLEKSI =======\n";
         cout << "1. Holo Collection\n2. Indie Collection\n3. Minecraft Collection\n4. Math Collection\n5. Card Collection\n0. Keluar\n";
-        cout << "Pilihan mu = ";
+        cout << "Pilihanmu = ";
         int choice = waitNewKey();
         switch (choice){
             case '1':
@@ -1261,7 +1295,7 @@ void start(){
 void outside(){
     system("cls||clear");
     cout << "====== DI LUAR ======\n";
-    cout << "==== Hari ke- " << days.currentDay << " ====\n";
+    cout << "===== Hari ke-" << days.currentDay << " =====\n";
     printTime();
     cout << "Kamu sedang di luar. Apa yang kamu ingin lakukan?";
     cout << "\n1. Toko\n2. Bekerja\n3. Rumah\n4. Toko Gacha\n5. Menu\n";
@@ -1302,7 +1336,7 @@ void house(){
     while (inhouse) {
         system("cls||clear");
         cout << "====== RUMAH ======\n";
-        cout << "==== Hari ke- " << days.currentDay << " ====\n";
+        cout << "===== Hari ke-" << days.currentDay << " =====\n";
         printTime();
         cout << "Kamu berada di rumahmu. Apa yang ingin kamu lakukan?\n";
         cout << "1. Tidur\n2. Istirahat\n3. Mandi\n4. Collection\n5. Menu\n0. Keluar rumah\n";
@@ -1315,6 +1349,7 @@ void house(){
             wait();
             nextDay();
             days.currentTimeHour = 7;
+            days.currentTimeMinute = 0;
         }
         else if (choice == '2'){
             int restRecover = player.maxStamPlayer / 4;
@@ -1341,8 +1376,8 @@ void house(){
             inhouse = false;
         }
         else if (choice == '5'){
-            menu();
             lastMenuSource = menuSource::HOUSE;
+            menu();
         }
         else if (choice == '0'){
             cout << "Kamu keluar dari rumahmu.\n";
@@ -1372,6 +1407,9 @@ void menu(){
         case menuSource::OUTSIDE:
             cout << "Outside" << endl;
             break;
+        case menuSource::SHOP:
+            cout << "Shop" << endl;
+            break;
         default:
             cout << "Unknown" << endl;
             break;
@@ -1385,6 +1423,9 @@ void menu(){
                     break;
                 case menuSource::OUTSIDE:
                     outside();
+                    break;
+                case menuSource::SHOP:
+                    shop();
                     break;
                 default:
                     start();
@@ -1403,6 +1444,9 @@ void menu(){
                     case menuSource::OUTSIDE:
                         outside();
                         break;
+                    case menuSource::SHOP:
+                        shop();
+                        break;
                     default:
                         house();
                         break;
@@ -1418,34 +1462,25 @@ void menu(){
     }
 }
 
-Item gachaItem(const vector<Item>& pool, int cost){
+void gachaBoxPurchase(int choice, int boxIndex, vector<Item>& gacha){
+    int cost = gachaBox[boxIndex].cost;
+    
     if (player.money < cost){
         notEnoughMoney(player.money, cost);
-        return Item{};
+        return;
     }
-
+    
     player.money -= cost;
-    vector<int> weights;
-    int totalWeights = 0;
 
-    for (const auto& item : pool){
-        int weight = 100;
-        weights.push_back(weight);
-        totalWeights += weight;
-    }
-
+    vector<int> weights(gacha.size(), 100);
     random_device rd;
     mt19937 gen(rd());
     discrete_distribution<int> dist(weights.begin(), weights.end());
-    auto index = dist(gen); 
-
-    return pool[index];    
-}
-
-void gachaBoxPurchase(int choice, int boxIndex, vector<Item>& gacha){
-    Item item = gachaItem(gacha, gachaBox[boxIndex].cost);
-    cout << "Anda mendapatkan: " << item.name << "!" << endl;
-    item.owned = true;
+    int index = dist(gen);
+    
+    gacha[index].owned = true;
+    
+    cout << "Anda mendapatkan: " << gacha[index].name << "!" << endl;
     flushInput();
     cout << "\nPress Z to continue...\n";
     waitNewKey();
@@ -1460,7 +1495,7 @@ void pengulanganGacha(int choice, vector<Item>& gachas){
         banyak = waitNewKey();
         flushInput();
 
-        if (banyak < '1' && banyak > '9'){
+        if (banyak < '1' || banyak > '9'){
             cout << "Jumlah harus di antara 1 dan 9. Coba ulangi lagi.\n";
             wait();
             continue;
@@ -1473,7 +1508,8 @@ void pengulanganGacha(int choice, vector<Item>& gachas){
             moneyEnough = false;
         } 
         else{
-            for (int i = '0'; i <= choice; i++){
+            cout << "Membeli sebanyak " << (banyak - '0') << " box\n\n";
+            for (int i = '1'; i <= banyak; i++){
                 gachaBoxPurchase(choice, choice - '1', gachas);
             }
             return;
@@ -1491,7 +1527,7 @@ void gachaShop(){
             cout << i + 1 << ". " << gachaBox[i].name << endl;
         }
         cout << "0. Keluar\n";
-        cout << "Pilihan mu = ";
+        cout << "Pilihanmu = ";
         flushInput();
         int choice = waitNewKey();
         switch (choice){
